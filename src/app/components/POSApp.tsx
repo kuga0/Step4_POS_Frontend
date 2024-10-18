@@ -57,91 +57,43 @@ export default function POSApp() {
     }
   };
 
-  const selectItem = (item: PurchaseItem) => {
-    setSelectedItem(item);
-    setScannedCode(item.code);
-  };
-
-  const removeSelectedItem = () => {
-    if (selectedItem) {
-      setPurchaseList(purchaseList.filter(item => item.code !== selectedItem.code));
-      setSelectedItem(null);
-    }
-  };
-
-  const updateQuantity = (newQuantity: number) => {
-    if (selectedItem && newQuantity > 0 && newQuantity <= 99) {
-      setPurchaseList(purchaseList.map(item =>
-        item.code === selectedItem.code ? { ...item, quantity: newQuantity } : item
-      ));
-    }
-  };
-
-  const handlePurchase = () => {
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-    axios.post(`${apiBaseUrl}/purchase`, {
-      EMP_CD: "12345",
-      STORE_CD: "001",
-      POS_NO: "001",
-      items: purchaseList.map((item) => ({
-        PRD_ID: item.code,
-        CODE: item.code,
-        NAME: item.name,
-        PRICE: item.price,
-        QUANTITY: item.quantity
-      }))
-    })
-    .then(() => {
-      alert(`購入が完了しました\n合計金額（税込）：${total}円`);
-      setPurchaseList([]);
-      setSelectedItem(null);
-    })
-    .catch(error => {
-      console.error('購入処理エラー:', error);
-    });
-  };
-
-  const handleCodeInput = () => {
-    const product = products.find(p => p.code === scannedCode);
-    if (product) {
-      addToPurchaseList(product);
-      alert('リストに商品を追加しました！');
-    } else {
-      alert('商品が見つかりません');
-    }
-  };
-
   const startScanner = () => {
     Quagga.init(
-      {
-        inputStream: {
-          name: "Live",
-          type: "LiveStream",
-          target: videoRef.current!,
-          constraints: { facingMode: "environment" }
+        {
+          inputStream: {
+            name: 'Live',
+            type: 'LiveStream',
+            target: videoRef.current!,
+            constraints: { facingMode: 'environment' }
+          },
+          decoder: { readers: ['ean_reader'] }
         },
-        decoder: { readers: ["ean_reader"] }
-      },
-      (err: Error | null) => {
-        if (err) {
-          console.error(err);
-          return;
+        (err: Error | null) => {
+          if (err) {
+            console.error(err);
+            return;
+          }
+          Quagga.start();
+          setIsScanning(true);
         }
-        Quagga.start();
-        setIsScanning(true);
-      }
-    );
+      );
+      
 
     Quagga.onDetected((result: { codeResult?: { code?: string } }) => {
-        if (result.codeResult && result.codeResult.code) {
-          setScannedCode(result.codeResult.code);
-          const product = products.find(p => p.code === result.codeResult.code);
-          if (product) {
-            addToPurchaseList(product);
-            alert('リストに商品を追加しました！');
-          }
+      if (result?.codeResult?.code) {
+        const scannedCode = result.codeResult.code;
+        setScannedCode(scannedCode);
+        const product = products.find((p) => p.code === scannedCode);
+        if (product) {
+          addToPurchaseList(product);
+          alert('リストに商品を追加しました！');
+        } else {
+          alert('商品が見つかりませんでした。');
         }
-      });
+      } else {
+        console.warn('コードの読み取りに失敗しました。');
+      }
+    });
   };
 
   const stopScanner = () => {
@@ -153,23 +105,11 @@ export default function POSApp() {
     <div className="app-container">
       <ScannerControls isScanning={isScanning} startScanner={startScanner} stopScanner={stopScanner} />
       <div ref={videoRef} className="video-container" style={{ display: isScanning ? 'block' : 'none' }}></div>
-      <CodeInput scannedCode={scannedCode} setScannedCode={setScannedCode} handleCodeInput={handleCodeInput} />
+      <CodeInput scannedCode={scannedCode} setScannedCode={setScannedCode} handleCodeInput={() => {}} />
       <ProductList products={products} addToPurchaseList={addToPurchaseList} />
-      <PurchaseList purchaseList={purchaseList} selectItem={selectItem} removeSelectedItem={removeSelectedItem} selectedItem={selectedItem} />
+      <PurchaseList purchaseList={purchaseList} selectItem={() => {}} removeSelectedItem={() => {}} selectedItem={null} />
       <h3 className="section-title">合計: {total}円（税込）</h3>
-      {selectedItem && (
-        <div className="quantity-input">
-          <label>数量変更: </label>
-          <input
-            type="number"
-            value={selectedItem.quantity}
-            onChange={(e) => updateQuantity(Number(e.target.value))}
-            min="1"
-            max="99"
-          />
-        </div>
-      )}
-      <PurchaseButton handlePurchase={handlePurchase} />
+      <PurchaseButton handlePurchase={() => {}} />
     </div>
   );
 }
